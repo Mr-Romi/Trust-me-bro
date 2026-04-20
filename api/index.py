@@ -5,9 +5,7 @@ import os
 from textblob import TextBlob
 from google_play_scraper import app as gplay_app, reviews as gplay_reviews, search
 
-# FIX: HTML_PAGE defined BEFORE routes so home() never gets NameError
-HTML_PAGE = """
-<!DOCTYPE html>
+HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -17,14 +15,14 @@ HTML_PAGE = """
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
-  --text: #f1f5f9; --text2: #94a3b8; --text3: #64748b;
-  --accent: #6366f1; --accent-hover: #818cf8;
-  --safe: #10b981; --warn: #f59e0b; --danger: #ef4444;
-  --radius: 16px; --radius-sm: 10px;
+  --bg:#0f172a; --surface:#1e293b; --surface2:#334155;
+  --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+  --accent:#6366f1; --accent-hover:#818cf8;
+  --safe:#10b981; --warn:#f59e0b; --danger:#ef4444;
+  --radius:16px; --radius-sm:10px;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:\'Inter\',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+body { font-family:'Inter',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
 .header { background:var(--surface); border-bottom:1px solid var(--surface2); padding:16px 32px; display:flex; align-items:center; gap:14px; }
 .header .logo { font-size:22px; font-weight:800; background:linear-gradient(135deg,var(--accent),#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
 .header .tagline { font-size:13px; color:var(--text3); }
@@ -64,9 +62,10 @@ body { font-family:\'Inter\',system-ui,sans-serif; background:var(--bg); color:v
 .score-ring.safe { background:linear-gradient(135deg,#10b981,#059669); box-shadow:0 0 30px rgba(16,185,129,.3); }
 .score-ring.suspicious { background:linear-gradient(135deg,#f59e0b,#d97706); box-shadow:0 0 30px rgba(245,158,11,.3); }
 .score-ring.scam { background:linear-gradient(135deg,#ef4444,#dc2626); box-shadow:0 0 30px rgba(239,68,68,.3); }
-/* FIX: score-lbl class renamed from score-label to avoid collision with score-ring class */
 .score-lbl { font-size:18px; font-weight:700; }
-.score-lbl.safe { color:var(--safe); } .score-lbl.suspicious { color:var(--warn); } .score-lbl.scam { color:var(--danger); }
+.score-lbl.safe { color:var(--safe); }
+.score-lbl.suspicious { color:var(--warn); }
+.score-lbl.scam { color:var(--danger); }
 .score-sub { font-size:13px; color:var(--text3); margin-top:4px; }
 .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:20px 0; }
 .stat { background:var(--bg); border-radius:var(--radius-sm); padding:16px; text-align:center; }
@@ -110,11 +109,11 @@ body { font-family:\'Inter\',system-ui,sans-serif; background:var(--bg); color:v
     <div class="suggestions" id="sug"></div>
   </div>
   <div class="chips">
-    <span class="chip" onclick="quick(\'WhatsApp\')">WhatsApp</span>
-    <span class="chip" onclick="quick(\'Spotify\')">Spotify</span>
-    <span class="chip" onclick="quick(\'Instagram\')">Instagram</span>
-    <span class="chip" onclick="quick(\'TikTok\')">TikTok</span>
-    <span class="chip" onclick="quick(\'Snapchat\')">Snapchat</span>
+    <span class="chip" onclick="quick('WhatsApp')">WhatsApp</span>
+    <span class="chip" onclick="quick('Spotify')">Spotify</span>
+    <span class="chip" onclick="quick('Instagram')">Instagram</span>
+    <span class="chip" onclick="quick('TikTok')">TikTok</span>
+    <span class="chip" onclick="quick('Snapchat')">Snapchat</span>
   </div>
 </div>
 <div class="result-area">
@@ -126,42 +125,56 @@ body { font-family:\'Inter\',system-ui,sans-serif; background:var(--bg); color:v
 <script>
 const $=id=>document.getElementById(id);
 let timer;
-function quick(n){$(\'q\').value=n;doSearch();}
-function doSearch(){const q=$(\'q\').value.trim();if(q)fetchSug(q);}
-$(\'q\').addEventListener(\'input\',function(){clearTimeout(timer);if(this.value.trim().length<2){$(\'sug\').style.display=\'none\';return;}timer=setTimeout(()=>fetchSug(this.value.trim()),350);});
-$(\'q\').addEventListener(\'keypress\',e=>{if(e.key===\'Enter\')doSearch();});
+function quick(n){$('q').value=n;doSearch();}
+function doSearch(){const q=$('q').value.trim();if(q)fetchSug(q);}
+$('q').addEventListener('input',function(){
+  clearTimeout(timer);
+  if(this.value.trim().length<2){$('sug').style.display='none';return;}
+  timer=setTimeout(()=>fetchSug(this.value.trim()),350);
+});
+$('q').addEventListener('keypress',e=>{if(e.key==='Enter')doSearch();});
+
 async function fetchSug(query){
   try{
-    const r=await fetch(\'/search\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({query})});
+    const r=await fetch('/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})});
     const d=await r.json();
     if(!d.success||!d.results.length)return;
-    $(\'sug\').innerHTML=d.results.map(r=>`<div class="suggestion-item" onclick="analyze(\'${r.appId}\')">
-      <img src="${r.icon}" alt="" onerror="this.style.display=\'none\'"/>
-      <div><div class="s-name">${r.title}</div><div class="s-id">${r.appId}</div></div>
-      <div class="s-rating">${r.score?r.score.toFixed(1)+\' stars\':\'\'}</div></div>`).join(\'\');
-    $(\'sug\').style.display=\'block\';
+    $('sug').innerHTML=d.results.map(r=>`
+      <div class="suggestion-item" onclick="analyze('${r.appId}')">
+        <img src="${r.icon}" alt="" onerror="this.style.display='none'"/>
+        <div><div class="s-name">${r.title}</div><div class="s-id">${r.appId}</div></div>
+        <div class="s-rating">${r.score?r.score.toFixed(1)+' stars':''}</div>
+      </div>`).join('');
+    $('sug').style.display='block';
   }catch(e){console.error(e);}
 }
-function stars(n){let s=\'\';for(let i=1;i<=5;i++)s+=i<=n?\'&#9733;\':\'&#9734;\';return s;}
+
+function stars(n){let s='';for(let i=1;i<=5;i++)s+=i<=n?'&#9733;':'&#9734;';return s;}
+
 async function analyze(id){
-  $(\'sug\').style.display=\'none\';
-  $(\'spin\').style.display=\'block\';
-  $(\'card\').style.display=\'none\';
-  $(\'err\').style.display=\'none\';
+  $('sug').style.display='none';
+  $('spin').style.display='block';
+  $('card').style.display='none';
+  $('err').style.display='none';
   try{
-    const r=await fetch(\'/analyze\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({package_id:id})});
+    const r=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({package_id:id})});
     const d=await r.json();
-    $(\'spin\').style.display=\'none\';
-    if(!d.success){$(\'err\').textContent=d.error||\'App not found.\';$(\'err\').style.display=\'block\';return;}
-    $(\'q\').value=d.title;
-    const cls=d.label===\'Safe\'?\'safe\':(d.label===\'Suspicious\'?\'suspicious\':\'scam\');
-    const dot=cls===\'safe\'?\'var(--safe)\':(cls===\'suspicious\'?\'var(--warn)\':\'var(--danger)\');
-    const revHTML=(d.reviews||[]).map(r=>`<div class="review" style="border-left-color:${r.color}">
-      <div class="review-top"><span class="review-stars">${stars(r.score)}</span>
-      <span class="sentiment-tag" style="background:${r.color}">${r.sentiment}</span></div>
-      <div class="review-text">${r.text}</div></div>`).join(\'\');
-    $(\'card\').innerHTML=`
-      <div class="app-header"><img src="${d.icon}" alt=""/>
+    $('spin').style.display='none';
+    if(!d.success){$('err').textContent=d.error||'App not found.';$('err').style.display='block';return;}
+    $('q').value=d.title;
+    const cls=d.label==='Safe'?'safe':(d.label==='Suspicious'?'suspicious':'scam');
+    const dot=cls==='safe'?'var(--safe)':(cls==='suspicious'?'var(--warn)':'var(--danger)');
+    const revHTML=(d.reviews||[]).map(r=>`
+      <div class="review" style="border-left-color:${r.color}">
+        <div class="review-top">
+          <span class="review-stars">${stars(r.score)}</span>
+          <span class="sentiment-tag" style="background:${r.color}">${r.sentiment}</span>
+        </div>
+        <div class="review-text">${r.text}</div>
+      </div>`).join('');
+    $('card').innerHTML=`
+      <div class="app-header">
+        <img src="${d.icon}" alt=""/>
         <div><h3>${d.title}</h3><p>${d.rating} stars - ${d.installs} installs</p></div>
       </div>
       <div class="score-section">
@@ -175,27 +188,26 @@ async function analyze(id){
         <div class="stat"><div class="val">${d.trust_score}/10</div><div class="key">Trust Score</div></div>
       </div>
       <div class="reasons"><h4>Analysis Details</h4>
-        ${d.reasons.map(r=>`<div class="reason"><div class="dot" style="background:${dot}"></div>${r}</div>`).join(\'\')}
+        ${d.reasons.map(r=>`<div class="reason"><div class="dot" style="background:${dot}"></div>${r}</div>`).join('')}
       </div>
       <hr class="divider"/>
       <div class="reviews-section"><h4>Top Reviews</h4>${revHTML}</div>`;
-    $(\'card\').style.display=\'block\';
+    $('card').style.display='block';
   }catch(e){
-    $(\'spin\').style.display=\'none\';
-    $(\'err\').textContent=\'Something went wrong. Try again.\';
-    $(\'err\').style.display=\'block\';
+    $('spin').style.display='none';
+    $('err').textContent='Something went wrong. Try again.';
+    $('err').style.display='block';
   }
 }
-document.addEventListener(\'click\',e=>{if(!e.target.closest(\'.search-wrapper\'))$(\'sug\').style.display=\'none\';});
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrapper'))$('sug').style.display='none';});
 </script>
 </body>
-</html>
-"""
+</html>"""
 
-# Setup
 app = Flask(__name__)
-MODEL_PATH = os.path.join(os.path.dirname(__file__), \'model.pkl\')
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'model.pkl')
 model = joblib.load(MODEL_PATH)
+
 
 def _polarity(text):
     try:
@@ -203,82 +215,93 @@ def _polarity(text):
     except Exception:
         return 0.0
 
+
 def _compute_trust(app_data, avg_polarity):
-    installs_str = str(app_data[\'installs\']).replace(\',\',\'\').replace(\'+\',\'\')
+    installs_str = str(app_data['installs']).replace(',', '').replace('+', '')
     installs     = int(installs_str) if installs_str.isdigit() else 1_000_000
-    ratio        = app_data[\'reviews\'] / (installs + 1)
-    mismatch     = int(app_data[\'score\'] >= 4.0 and avg_polarity < 0.0)
+    ratio        = app_data['reviews'] / (installs + 1)
+    mismatch     = int(app_data['score'] >= 4.0 and avg_polarity < 0.0)
     fake_burst   = int(ratio > 0.05)
     live = pd.DataFrame([{
-        \'Rating\': app_data[\'score\'], \'Avg_Polarity\': avg_polarity,
-        \'Mismatch\': mismatch, \'Fake_Burst\': fake_burst,
-        \'Review_Install_Ratio\': ratio
+        'Rating': app_data['score'], 'Avg_Polarity': avg_polarity,
+        'Mismatch': mismatch, 'Fake_Burst': fake_burst,
+        'Review_Install_Ratio': ratio
     }])
     prediction = model.predict(live)[0]
     score = 10.0
-    if app_data[\'score\'] < 3.0: score -= 3
-    if avg_polarity < 0.0:        score -= 2.5
-    if mismatch:                   score -= 2
-    if fake_burst:                 score -= 1.5
+    if app_data['score'] < 3.0: score -= 3
+    if avg_polarity < 0.0:      score -= 2.5
+    if mismatch:                 score -= 2
+    if fake_burst:               score -= 1.5
     score = round(max(score, 0), 1)
     reasons = []
-    if mismatch:             reasons.append(\'High rating but negative reviews detected\')
-    if fake_burst:           reasons.append(\'Suspicious review-to-install ratio\')
-    if avg_polarity < 0.0:  reasons.append(\'Overall negative sentiment in reviews\')
-    if app_data[\'score\']<3: reasons.append(\'Low rating on Play Store\')
-    if not reasons:          reasons.append(\'No suspicious patterns detected\')
+    if mismatch:            reasons.append('High rating but negative reviews detected')
+    if fake_burst:          reasons.append('Suspicious review-to-install ratio')
+    if avg_polarity < 0.0: reasons.append('Overall negative sentiment in reviews')
+    if app_data['score']<3: reasons.append('Low rating on Play Store')
+    if not reasons:         reasons.append('No suspicious patterns detected')
     return score, prediction, reasons
 
-@app.route(\'/\')
-def home():
-    return HTML_PAGE, 200, {\'Content-Type\': \'text/html\'}
 
-@app.route(\'/search\', methods=[\'POST\'])
+@app.route('/')
+def home():
+    return HTML_PAGE, 200, {'Content-Type': 'text/html'}
+
+
+@app.route('/search', methods=['POST'])
 def search_apps():
-    query = request.json.get(\'query\', \'\')
+    query = request.json.get('query', '')
     try:
-        results = search(query, n_hits=6, lang=\'en\', country=\'us\')
+        results = search(query, n_hits=6, lang='en', country='us')
         return jsonify({
-            \'success\': True,
-            \'results\': [
-                {\'title\': r.get(\'title\',\'\'), \'appId\': r.get(\'appId\',\'\'),
-                 \'icon\': r.get(\'icon\',\'\'), \'score\': r.get(\'score\',0)}
-                for r in results if r.get(\'appId\')
+            'success': True,
+            'results': [
+                {'title': r.get('title', ''), 'appId': r.get('appId', ''),
+                 'icon': r.get('icon', ''), 'score': r.get('score', 0)}
+                for r in results if r.get('appId')
             ]
         })
     except Exception as e:
-        return jsonify({\'success\': False, \'error\': str(e)})
+        return jsonify({'success': False, 'error': str(e)})
 
-@app.route(\'/analyze\', methods=[\'POST\'])
+
+@app.route('/analyze', methods=['POST'])
 def analyze():
-    package_id = request.json.get(\'package_id\')
+    package_id = request.json.get('package_id')
     try:
         app_data = gplay_app(package_id)
-        rev, _   = gplay_reviews(package_id, count=100, lang=\'en\', country=\'us\')
+        rev, _   = gplay_reviews(package_id, count=100, lang='en', country='us')
         rev_df   = pd.DataFrame(rev)
-        rev_df[\'Polarity\'] = rev_df[\'content\'].apply(_polarity)
-        avg_pol  = round(rev_df[\'Polarity\'].mean(), 2)
+        rev_df['Polarity'] = rev_df['content'].apply(_polarity)
+        avg_pol  = round(rev_df['Polarity'].mean(), 2)
         score, prediction, reasons = _compute_trust(app_data, avg_pol)
         top_reviews = []
         for _, row in rev_df.head(5).iterrows():
-            p = row[\'Polarity\']
-            if p > 0.1:    tag, color = \'Positive\', \'#10b981\'
-            elif p < -0.1: tag, color = \'Negative\', \'#ef4444\'
-            else:          tag, color = \'Neutral\',  \'#6b7280\'
+            p = row['Polarity']
+            if p > 0.1:    tag, color = 'Positive', '#10b981'
+            elif p < -0.1: tag, color = 'Negative', '#ef4444'
+            else:          tag, color = 'Neutral',  '#6b7280'
             top_reviews.append({
-                \'text\': str(row[\'content\'])[:200],
-                \'score\': int(row[\'score\']),
-                \'sentiment\': tag, \'color\': color
+                'text':      str(row['content'])[:200],
+                'score':     int(row['score']),
+                'sentiment': tag,
+                'color':     color
             })
         return jsonify({
-            \'success\': True, \'title\': app_data[\'title\'],
-            \'rating\': round(app_data[\'score\'],1), \'installs\': app_data[\'installs\'],
-            \'icon\': app_data[\'icon\'], \'trust_score\': score,
-            \'label\': prediction, \'avg_polarity\': avg_pol,
-            \'reasons\': reasons, \'reviews\': top_reviews
+            'success':      True,
+            'title':        app_data['title'],
+            'rating':       round(app_data['score'], 1),
+            'installs':     app_data['installs'],
+            'icon':         app_data['icon'],
+            'trust_score':  score,
+            'label':        prediction,
+            'avg_polarity': avg_pol,
+            'reasons':      reasons,
+            'reviews':      top_reviews
         })
     except Exception as e:
-        return jsonify({\'success\': False, \'error\': str(e)})
+        return jsonify({'success': False, 'error': str(e)})
 
-if __name__ == \'__main__\':
+
+if __name__ == '__main__':
     app.run(debug=True)
